@@ -1,0 +1,39 @@
+
+import React from 'react';
+
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  label?: string;
+  error?: string;
+  icon?: React.ReactNode;
+}
+
+const Input: React.FC<InputProps> = ({ label, error, icon, className = '', ...props }) => {
+  return (
+    <div className="w-full mb-4">
+      {label && (
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          {label}
+        </label>
+      )}
+      <div className="relative">
+        {icon && (
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+            {icon}
+          </div>
+        )}
+        <input
+          className={`
+            block w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 outline-none
+            ${icon ? 'pl-10' : ''}
+            ${error ? 'border-danger focus:ring-danger' : 'border-gray-300'}
+            ${className}
+          `}
+          {...props}
+        />
+      </div>
+      {error && <p className="mt-1 text-xs text-danger font-medium">{error}</p>}
+    </div>
+  );
+};
+
+export default Input;
