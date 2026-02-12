@@ -1,0 +1,54 @@
+{
+  "realm": "testai",
+  "enabled": true,
+  "displayName": "TestAI Realm",
+  "accessTokenLifespan": 3600,
+  
+  "roles": {
+    "realm": [
+      {
+        "name": "ADMIN",
+        "description": "Administrator role"
+      },
+      {
+        "name": "MANAGER",
+        "description": "Manager role"
+      },
+      {
+        "name": "DEVELOPER",
+        "description": "Developer role"
+      }
+    ]
+  },
+  
+  "clients": [
+    {
+      "clientId": "user-service",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "0W791wbIPTtDR3v7noogqAFpBBsOZpw0",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "redirectUris": ["http://localhost:8081/*"],
+      "webOrigins": ["http://localhost:8081", "http://localhost:3000"],
+      
+      "protocolMappers": [
+        {
+          "name": "realm-roles-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "roles",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "true"
+          }
+        }
+      ]
+    }
+  ]
+}

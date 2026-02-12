@@ -1,0 +1,184 @@
+# ==========================================
+# Docker Compose - TestAI User Service
+# ==========================================
+
+version: '3.8'
+
+services:
+  
+  # ========================================
+  # BASE DE DONNÉES POSTGRESQL (User Service)
+  # ========================================
+  user-db:
+    image: postgres:15-alpine
+    container_name: testai-user-db
+    environment:
+      POSTGRES_DB: user_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - user-db-data:/var/lib/postgresql/data
+    networks:
+      - testai-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d user_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ========================================
+  # BASE DE DONNÉES POSTGRESQL (Keycloak)
+  # ========================================
+  keycloak-db:
+    image: postgres:15-alpine
+    container_name: testai-keycloak-db
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak123
+    volumes:
+      - keycloak-db-data:/var/lib/postgresql/data
+    networks:
+      - testai-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ========================================
+  # KEYCLOAK (Serveur d'Authentification)
+  # ========================================
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0
+    container_name: testai-keycloak
+    environment:
+      # Admin credentials
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin123
+      
+      # Database configuration
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak123
+      
+      # Keycloak configuration
+      KC_HOSTNAME_STRICT: false
+      KC_HOSTNAME_STRICT_HTTPS: false
+      KC_HTTP_ENABLED: true
+      KC_HEALTH_ENABLED: true
+      KC_METRICS_ENABLED: true
+      
+      # Logging
+      KC_LOG_LEVEL: INFO
+    command:
+      - start-dev
+      - --import-realm
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./keycloak-init/realm-config.json:/opt/keycloak/data/import/realm-config.json
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    networks:
+      - testai-network
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080;echo -e 'GET /health/ready HTTP/1.1\r\nhost: http://localhost\r\nConnection: close\r\n\r\n' >&3;grep 'HTTP/1.1 200 OK' <&3"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
+    restart: unless-stopped
+
+  # ========================================
+  # USER SERVICE (Application Spring Boot)
+  # ========================================
+  user-service:
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+    container_name: testai-user-service
+    environment:
+      # Spring Profile
+      SPRING_PROFILES_ACTIVE: docker
+      
+      # Database configuration
+      DB_HOST: user-db
+      DB_PORT: 5432
+      DB_NAME: user_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      
+      # Keycloak configuration
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_REALM: testai
+      KEYCLOAK_CLIENT_ID: user-service
+      KEYCLOAK_CLIENT_SECRET: 0W791wbIPTtDR3v7noogqAFpBBsOZpw0
+      KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/testai
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/testai/protocol/openid-connect/certs
+      
+      # Server configuration
+      SERVER_PORT: 8081
+      
+      # Eureka (désactivé pour le moment)
+      EUREKA_ENABLED: false
+      
+      # Java options
+      JAVA_OPTS: "-Xmx512m -Xms256m"
+    ports:
+      - "8081:8081"
+    depends_on:
+      user-db:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    networks:
+      - testai-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+  
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: testai-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@local.test
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    networks:
+      - testai-network
+    depends_on:
+      - user-db
+
+# ========================================
+# ========================================
+volumes:
+  user-db-data:
+    driver: local
+    name: testai-user-db-data
+  keycloak-db-data:
+    driver: local
+    name: testai-keycloak-db-data
+
+# ========================================
+# RÉSEAU (Communication entre containers)
+# ========================================
+networks:
+  testai-network:
+    driver: bridge
+    name: testai-network

@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guide de Connexion pgAdmin Local à PostgreSQL</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+        }
+        .step {
+            background-color: #ecf0f1;
+            padding: 15px;
+            margin: 15px 0;
+            border-left: 4px solid #3498db;
+            border-radius: 4px;
+        }
+        .config-box {
+            background-color: #fff3cd;
+            padding: 20px;
+            margin: 15px 0;
+            border: 1px solid #ffc107;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+        .success {
+            background-color: #d4edda;
+            padding: 15px;
+            margin: 15px 0;
+            border: 1px solid #28a745;
+            border-radius: 4px;
+            color: #155724;
+        }
+        .warning {
+            background-color: #f8d7da;
+            padding: 15px;
+            margin: 15px 0;
+            border: 1px solid #f5c6cb;
+            border-radius: 4px;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            padding: 15px;
+            margin: 15px 0;
+            border: 1px solid #bee5eb;
+            border-radius: 4px;
+            color: #0c5460;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        ul {
+            margin: 10px 0;
+        }
+        li {
+            margin: 8px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        table th, table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        table th {
+            background-color: #3498db;
+            color: white;
+        }
+        table tr:hover {
+            background-color: #f5f5f5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔗 Guide de Connexion pgAdmin Local à PostgreSQL Docker</h1>
+
+        <div class="info">
+            <strong>📌 Situation actuelle:</strong>
+            <ul>
+                <li>✅ PostgreSQL Docker est en cours d'exécution sur <code>localhost:5432</code></li>
+                <li>✅ Votre base de données <code>user_db</code> contient 11 utilisateurs</li>
+                <li>✅ pgAdmin est installé localement sur votre machine</li>
+            </ul>
+        </div>
+
+        <h2>📋 Configuration PostgreSQL</h2>
+        <table>
+            <tr>
+                <th>Paramètre</th>
+                <th>Valeur</th>
+            </tr>
+            <tr>
+                <td>Hôte</td>
+                <td><code>localhost</code></td>
+            </tr>
+            <tr>
+                <td>Port</td>
+                <td><code>5432</code></td>
+            </tr>
+            <tr>
+                <td>Base de données</td>
+                <td><code>user_db</code></td>
+            </tr>
+            <tr>
+                <td>Utilisateur</td>
+                <td><code>postgres</code></td>
+            </tr>
+            <tr>
+                <td>Mot de passe</td>
+                <td><code>postgres</code></td>
+            </tr>
+        </table>
+
+        <h2>🚀 Étapes pour connecter pgAdmin Local</h2>
+
+        <div class="step">
+            <h3>Étape 1: Ouvrir pgAdmin</h3>
+            <ul>
+                <li>Lancez pgAdmin sur votre machine</li>
+                <li>Généralement accessible sur:</li>
+                <ul>
+                    <li><code>http://localhost/pgadmin4</code> (Windows Services)</li>
+                    <li><code>http://localhost:5050</code> (Docker)</li>
+                    <li>Ou via le raccourci de votre application pgAdmin</li>
+                </ul>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h3>Étape 2: Enregistrer un nouveau serveur</h3>
+            <ul>
+                <li>Cliquez sur <strong>"Register"</strong> dans la barre de menu supérieure</li>
+                <li>Sélectionnez <strong>"Server"</strong></li>
+                <li><em>Ou cliquez droit sur "Servers" dans le panneau gauche et sélectionnez "Create" → "Server"</em></li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h3>Étape 3: Remplir l'onglet "General"</h3>
+            <ul>
+                <li><strong>Name</strong>: <code>testai-user-db</code> (ou un nom au choix)</li>
+                <li>Les autres champs sont optionnels</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h3>Étape 4: Remplir l'onglet "Connection"</h3>
+            <div class="config-box">
+                <strong>Host name/address:</strong> localhost<br>
+                <strong>Port:</strong> 5432<br>
+                <strong>Maintenance database:</strong> user_db<br>
+                <strong>Username:</strong> postgres<br>
+                <strong>Password:</strong> postgres<br>
+                <strong>Save password?:</strong> ✓ (Cochez la case)
+            </div>
+        </div>
+
+        <div class="step">
+            <h3>Étape 5: Enregistrer la connexion</h3>
+            <ul>
+                <li>Cliquez sur le bouton <strong>"Save"</strong></li>
+                <li>pgAdmin va tenter de se connecter à PostgreSQL</li>
+                <li>Si tout est correct, le serveur apparaîtra dans le panneau gauche</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h3>Étape 6: Naviguer vers les utilisateurs</h3>
+            <ul>
+                <li>Dans le panneau gauche, développez:</li>
+                <ul>
+                    <li><strong>Servers</strong> → <strong>testai-user-db</strong> → <strong>Databases</strong> → <strong>user_db</strong></li>
+                    <li>→ <strong>Schemas</strong> → <strong>public</strong> → <strong>Tables</strong> → <strong>users</strong></li>
+                </ul>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h3>Étape 7: Consulter les données</h3>
+            <ul>
+                <li>Cliquez droit sur la table <strong>users</strong></li>
+                <li>Sélectionnez <strong>"View/Edit Data"</strong> → <strong>"All Rows"</strong></li>
+                <li>✅ Vous verrez vos 11 utilisateurs!</li>
+            </ul>
+        </div>
+
+        <h2>⚠️ Dépannage - Si la connexion échoue</h2>
+
+        <div class="warning">
+            <h3>Erreur: "Connection refused" ou "Connection timeout"</h3>
+            <p><strong>Solution:</strong></p>
+            <ul>
+                <li>Vérifiez que le conteneur PostgreSQL est en cours d'exécution:</li>
+                <li><code>docker ps | findstr testai-user-db</code></li>
+                <li>Si ce n'est pas visible, redémarrez-le: <code>docker start testai-user-db</code></li>
+            </ul>
+        </div>
+
+        <div class="warning">
+            <h3>Erreur: "FATAL: password authentication failed for user postgres"</h3>
+            <p><strong>Solution:</strong></p>
+            <ul>
+                <li>Le mot de passe PostgreSQL doit être réinitialisé</li>
+                <li>Exécutez cette commande:</li>
+                <li><code>docker exec testai-user-db psql -U postgres -d user_db -c "ALTER USER postgres PASSWORD 'postgres';"</code></li>
+                <li>Réessayez la connexion dans pgAdmin</li>
+            </ul>
+        </div>
+
+        <div class="warning">
+            <h3>Erreur: "Database 'user_db' does not exist"</h3>
+            <p><strong>Solution:</strong></p>
+            <ul>
+                <li>Assurez-vous que le champ "Maintenance database" est bien rempli avec: <code>user_db</code></li>
+                <li>Vérifiez que la base de données existe: <code>docker exec testai-user-db psql -U postgres -l</code></li>
+            </ul>
+        </div>
+
+        <h2>✅ Vérification rapide</h2>
+        <p>Pour vérifier que tout fonctionne correctement, exécutez cette commande dans l'invite de commande:</p>
+        <div class="config-box">
+            docker exec testai-user-db psql -U postgres -d user_db -c "SELECT COUNT(*) as nombre_utilisateurs FROM users;"
+        </div>
+        <p>Vous devriez voir le résultat: <code>11</code></p>
+
+        <div class="success">
+            <h3>✨ Résumé des données</h3>
+            <ul>
+                <li>Nombre total d'utilisateurs: <strong>11</strong></li>
+                <li>Table: <strong>users</strong></li>
+                <li>Colonnes principales: id, name, email, role, keycloak_id, created_at, is_active</li>
+            </ul>
+        </div>
+
+        <h2>📞 Support</h2>
+        <p>Si vous rencontrez d'autres problèmes, assurez-vous que:</p>
+        <ul>
+            <li>✓ Docker Desktop est en cours d'exécution</li>
+            <li>✓ Le conteneur <code>testai-user-db</code> est actif</li>
+            <li>✓ pgAdmin est installé et accessible</li>
+            <li>✓ Le port 5432 n'est pas utilisé par une autre application</li>
+            <li>✓ Vous n'avez pas de pare-feu bloquant la connexion</li>
+        </ul>
+
+        <hr>
+        <p style="color: #7f8c8d; font-size: 0.9em; text-align: center;">
+            Guide créé le: 2026-02-11<br>
+            Configuration: PostgreSQL Docker + pgAdmin Local
+        </p>
+    </div>
+</body>
+</html>
