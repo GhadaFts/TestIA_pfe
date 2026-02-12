@@ -3,23 +3,37 @@
   "enabled": true,
   "displayName": "TestAI Realm",
   "accessTokenLifespan": 3600,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "offlineSessionIdleTimeout": 2592000,
+  "registrationAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
   
   "roles": {
     "realm": [
       {
         "name": "ADMIN",
-        "description": "Administrator role"
+        "description": "Administrator role",
+        "composite": false,
+        "clientRole": false
       },
       {
         "name": "MANAGER",
-        "description": "Manager role"
+        "description": "Manager role",
+        "composite": false,
+        "clientRole": false
       },
       {
         "name": "DEVELOPER",
-        "description": "Developer role"
+        "description": "Developer role",
+        "composite": false,
+        "clientRole": false
       }
     ]
   },
+  
   
   "clients": [
     {
@@ -30,8 +44,19 @@
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
       "serviceAccountsEnabled": true,
-      "redirectUris": ["http://localhost:8081/*"],
-      "webOrigins": ["http://localhost:8081", "http://localhost:3000"],
+      "authorizationServicesEnabled": false,
+      "redirectUris": [
+        "http://localhost:8081/*",
+        "http://localhost:3000/*"
+      ],
+      "webOrigins": [
+        "http://localhost:8081",
+        "http://localhost:3000",
+        "*"
+      ],
+      "bearerOnly": false,
+      "consentRequired": false,
+      "fullScopeAllowed": true,
       
       "protocolMappers": [
         {
@@ -46,6 +71,20 @@
             "access.token.claim": "true",
             "userinfo.token.claim": "true",
             "multivalued": "true"
+          }
+        },
+        {
+          "name": "email-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "email",
+            "claim.name": "email",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
           }
         }
       ]
