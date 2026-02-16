@@ -7,16 +7,34 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * Repository pour l'entité User
+ */
 @Repository
 public interface UserRepository extends JpaRepository<User, UUID> {
 
+    /**
+     * Trouver un utilisateur par email
+     */
     Optional<User> findByEmail(String email);
 
-    Optional<User> findByKeycloakId(String keycloakId);
-
+    /**
+     * Vérifier si un email existe
+     */
     boolean existsByEmail(String email);
 
-    boolean existsByKeycloakId(String keycloakId);
+    /**
+     * Trouver un utilisateur par son ID Keycloak
+     */
+    Optional<User> findByKeycloakId(String keycloakId);
+
+    /**
+     * Trouver un utilisateur par son token de vérification email
+     */
+    Optional<User> findByEmailVerificationToken(String token);
+
+    /**
+     * Trouver un utilisateur par son numéro de téléphone
+     */
+    Optional<User> findByPhoneNumber(String phoneNumber);
 }
-
-

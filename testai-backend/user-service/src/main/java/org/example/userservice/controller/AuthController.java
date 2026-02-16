@@ -17,43 +17,76 @@ import java.util.Map;
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*") // À configurer selon vos besoins
+@CrossOrigin(origins = "*")
 public class AuthController {
 
     private final UserService userService;
 
     /**
-     * Inscription
+     * ✅ CORRIGÉ : Inscription avec vérification email
+     * Retourne un message demandant de vérifier l'email (pas de token)
      */
     @PostMapping("/register")
-    public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
+    public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request) {
         log.info("Requête d'inscription reçue pour: {}", request.getEmail());
-        AuthResponse response = userService.register(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+
+        try {
+            Map<String, Object> response = userService.register(request);
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+
+        } catch (Exception e) {
+            log.error("Erreur lors de l'inscription: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "❌ " + e.getMessage()
+            ));
+        }
     }
 
     /**
      * Connexion
      */
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
         log.info("Requête de connexion reçue pour: {}", request.getEmail());
-        AuthResponse response = userService.login(request);
-        return ResponseEntity.ok(response);
+
+        try {
+            AuthResponse response = userService.login(request);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Erreur lors de la connexion: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
+                    "success", false,
+                    "message", "❌ " + e.getMessage()
+            ));
+        }
     }
 
     /**
      * Rafraîchir le token
      */
     @PostMapping("/refresh")
-    public ResponseEntity<AuthResponse> refreshToken(@RequestBody Map<String, String> request) {
+    public ResponseEntity<?> refreshToken(@RequestBody Map<String, String> request) {
         String refreshToken = request.get("refreshToken");
+
         if (refreshToken == null || refreshToken.isEmpty()) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "Refresh token requis"
+            ));
         }
 
-        AuthResponse response = userService.refreshToken(refreshToken);
-        return ResponseEntity.ok(response);
+        try {
+            AuthResponse response = userService.refreshToken(refreshToken);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
+                    "success", false,
+                    "message", "Token invalide ou expiré"
+            ));
+        }
     }
 
     /**
@@ -61,7 +94,6 @@ public class AuthController {
      */
     @PostMapping("/logout")
     public ResponseEntity<Map<String, String>> logout() {
-        // Keycloak gère la déconnexion côté client
         return ResponseEntity.ok(Map.of("message", "Déconnexion réussie"));
     }
 }
