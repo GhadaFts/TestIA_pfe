@@ -37,4 +37,27 @@ public interface UserRepository extends JpaRepository<User, UUID> {
      * Trouver un utilisateur par son numéro de téléphone
      */
     Optional<User> findByPhoneNumber(String phoneNumber);
+    /**
+     * Trouver un utilisateur par son token de réinitialisation de mot de passe
+     */
+    Optional<User> findByPasswordResetToken(String token);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 }

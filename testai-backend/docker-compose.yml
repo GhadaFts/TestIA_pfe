@@ -104,6 +104,8 @@ services:
     build:
       context: ./user-service
       dockerfile: Dockerfile
+    env_file:
+      - .env  
     container_name: testai-user-service
     environment:
       # Spring Profile

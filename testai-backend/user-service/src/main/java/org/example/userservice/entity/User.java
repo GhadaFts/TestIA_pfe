@@ -100,6 +100,32 @@ public class User {
     @Column(name = "phone_verification_sent_at")
     private Instant phoneVerificationSentAt;
 
+    // CHAMPS POUR RÉINITIALISATION DE MOT DE PASSE
+// ========================================
+
+    /**
+     * Token de réinitialisation de mot de passe
+     */
+    @Column(name = "password_reset_token", unique = true)
+    private String passwordResetToken;
+
+    /**
+     * Date d'expiration du token de réinitialisation (1 heure)
+     */
+    @Column(name = "password_reset_token_expires_at")
+    private Instant passwordResetTokenExpiresAt;
+
+    /**
+     * Nombre de tentatives de réinitialisation (max 3 par heure)
+     */
+    @Column(name = "password_reset_attempts")
+    private Integer passwordResetAttempts;
+
+    /**
+     * Date de la dernière demande de réinitialisation
+     */
+    @Column(name = "password_reset_requested_at")
+    private Instant passwordResetRequestedAt;
     /**
      * Hook JPA exécuté avant la première sauvegarde
      */
@@ -116,6 +142,9 @@ public class User {
         }
         if (this.phoneVerificationAttempts == null) {
             this.phoneVerificationAttempts = 0;
+        }
+        if (this.passwordResetAttempts == null) {
+            this.passwordResetAttempts = 0;
         }
     }
 

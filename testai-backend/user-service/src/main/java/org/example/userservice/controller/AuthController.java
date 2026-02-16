@@ -1,8 +1,6 @@
 package org.example.userservice.controller;
 
-import org.example.userservice.dto.AuthResponse;
-import org.example.userservice.dto.LoginRequest;
-import org.example.userservice.dto.RegisterRequest;
+import org.example.userservice.dto.*;
 import org.example.userservice.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -95,5 +93,75 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<Map<String, String>> logout() {
         return ResponseEntity.ok(Map.of("message", "Déconnexion réussie"));
+    }
+
+    /**
+     * Demander la réinitialisation du mot de passe
+     * POST /api/auth/forgot-password
+     * Body: { "email": "user@example.com" }
+     */
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        log.info("Demande de réinitialisation de mot de passe pour: {}", request.getEmail());
+
+        try {
+            Map<String, Object> response = userService.requestPasswordReset(request.getEmail());
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Erreur demande réinitialisation: {}", e.getMessage());
+
+            // Pour la sécurité, on retourne toujours un succès même si l'email n'existe pas
+            // Cela empêche de deviner quels emails sont enregistrés
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "📧 Si cet email existe dans notre système, un lien de réinitialisation a été envoyé."
+            ));
+        }
+    }
+
+    /**
+     * Vérifier le token de réinitialisation (pour afficher le formulaire)
+     * GET /api/auth/validate-reset-token?token=xxx
+     */
+    @GetMapping("/validate-reset-token")
+    public ResponseEntity<?> validateResetToken(@RequestParam String token) {
+        log.info("Validation du token de réinitialisation");
+
+        try {
+            Map<String, Object> response = userService.validateResetToken(token);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Erreur validation token: {}", e.getMessage());
+
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "❌ " + e.getMessage()
+            ));
+        }
+    }
+
+    /**
+     * Réinitialiser le mot de passe
+     * POST /api/auth/reset-password
+     * Body: { "token": "xxx", "newPassword": "...", "confirmPassword": "..." }
+     */
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        log.info("Réinitialisation du mot de passe");
+
+        try {
+            Map<String, Object> response = userService.resetPassword(request);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Erreur réinitialisation mot de passe: {}", e.getMessage());
+
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "❌ " + e.getMessage()
+            ));
+        }
     }
 }

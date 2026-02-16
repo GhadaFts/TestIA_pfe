@@ -320,4 +320,46 @@ public class KeycloakService {
             throw new RuntimeException("Impossible de rafraîchir le token", e);
         }
     }
+    /**
+     * Mettre à jour le mot de passe d'un utilisateur dans Keycloak
+     */
+    public void updateUserPassword(String keycloakId, String newPassword) {
+        log.info("Mise à jour du mot de passe Keycloak pour l'utilisateur: {}", keycloakId);
+
+        try {
+            String url = keycloakUrl + "/admin/realms/" + realm + "/users/" + keycloakId + "/reset-password";
+
+            // Créer le body avec le nouveau mot de passe
+            Map<String, Object> passwordCredential = Map.of(
+                    "type", "password",
+                    "value", newPassword,
+                    "temporary", false  // Pas de changement forcé au prochain login
+            );
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("Authorization", "Bearer " + getAdminToken());
+
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(passwordCredential, headers);
+
+            // PUT request pour mettre à jour le mot de passe
+            ResponseEntity<String> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.PUT,
+                    request,
+                    String.class
+            );
+
+            if (response.getStatusCode().is2xxSuccessful()) {
+                log.info("✅ Mot de passe mis à jour dans Keycloak");
+            } else {
+                log.error("❌ Erreur mise à jour mot de passe: {}", response.getStatusCode());
+                throw new RuntimeException("Erreur lors de la mise à jour du mot de passe");
+            }
+
+        } catch (Exception e) {
+            log.error("❌ Exception lors de la mise à jour du mot de passe: {}", e.getMessage());
+            throw new RuntimeException("Erreur lors de la mise à jour du mot de passe: " + e.getMessage());
+        }
+    }
 }

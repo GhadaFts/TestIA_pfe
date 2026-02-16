@@ -60,4 +60,56 @@ public class EmailService {
         sendVerificationEmail(toEmail, userName, verificationToken);
         log.info("📧 Email de vérification renvoyé à {}", toEmail);
     }
+
+    /**
+     * Envoyer un email de réinitialisation de mot de passe
+     */
+    public void sendPasswordResetEmail(String toEmail, String userName, String resetToken) {
+        try {
+            String resetUrl = backendUrl + "/api/auth/reset-password?token=" + resetToken;
+
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(fromEmail);
+            message.setTo(toEmail);
+            message.setSubject("TestAI - Réinitialisation de votre mot de passe");
+            message.setText(
+                    "Bonjour " + userName + ",\n\n" +
+                            "Vous avez demandé la réinitialisation de votre mot de passe sur TestAI.\n\n" +
+                            "Pour créer un nouveau mot de passe, cliquez sur le lien suivant :\n\n" +
+                            resetUrl + "\n\n" +
+                            "Ce lien est valable pendant 1 heure.\n\n" +
+                            "Si vous n'avez pas demandé cette réinitialisation, ignorez cet email. " +
+                            "Votre mot de passe actuel restera inchangé.\n\n" +
+                            "Pour votre sécurité, ne partagez jamais ce lien.\n\n" +
+                            "Cordialement,\n" +
+                            "L'équipe TestAI"
+            );
+
+            mailSender.send(message);
+            log.info("✅ Email de réinitialisation de mot de passe envoyé à {}", toEmail);
+
+        } catch (Exception e) {
+            log.error("❌ Erreur lors de l'envoi de l'email de réinitialisation à {}: {}", toEmail, e.getMessage());
+            throw new RuntimeException("Impossible d'envoyer l'email de réinitialisation", e);
+        }
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 }

@@ -541,4 +541,161 @@ public class UserService {
                 user.getLastLogin()
         );
     }
+    /**
+     * Demander la réinitialisation du mot de passe
+     * Génère un token et envoie un email
+     */
+    @Transactional
+    public Map<String, Object> requestPasswordReset(String email) {
+        log.info("Demande de réinitialisation de mot de passe pour: {}", email);
+
+        // 1. Vérifier que l'utilisateur existe
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+
+        // 2. Vérifier que le compte est actif
+        if (!user.getIsActive()) {
+            throw new RuntimeException("Ce compte est désactivé. Veuillez contacter le support.");
+        }
+
+        // 3. Rate limiting : Max 3 demandes par heure
+        if (user.getPasswordResetRequestedAt() != null) {
+            long minutesSinceLastRequest = (Instant.now().getEpochSecond() -
+                    user.getPasswordResetRequestedAt().getEpochSecond()) / 60;
+
+            if (minutesSinceLastRequest < 60) {
+                if (user.getPasswordResetAttempts() >= 3) {
+                    long waitTime = 60 - minutesSinceLastRequest;
+                    throw new RuntimeException("Trop de tentatives. Veuillez réessayer dans " + waitTime + " minutes.");
+                }
+            } else {
+                // Reset les tentatives après 1 heure
+                user.setPasswordResetAttempts(0);
+            }
+        }
+
+        // 4. Générer le token de réinitialisation
+        String resetToken = UUID.randomUUID().toString();
+        Instant expiresAt = Instant.now().plusSeconds(3600); // 1 heure
+
+        // 5. Mettre à jour l'utilisateur
+        user.setPasswordResetToken(resetToken);
+        user.setPasswordResetTokenExpiresAt(expiresAt);
+        user.setPasswordResetAttempts((user.getPasswordResetAttempts() != null ?
+                user.getPasswordResetAttempts() : 0) + 1);
+        user.setPasswordResetRequestedAt(Instant.now());
+
+        userRepository.save(user);
+        log.info("✅ Token de réinitialisation généré pour {}", email);
+
+        // 6. Envoyer l'email
+        try {
+            emailService.sendPasswordResetEmail(
+                    user.getEmail(),
+                    user.getName(),
+                    resetToken
+            );
+            log.info("📧 Email de réinitialisation envoyé à {}", email);
+        } catch (Exception e) {
+            log.error("⚠️ Impossible d'envoyer l'email: {}", e.getMessage());
+            throw new RuntimeException("Impossible d'envoyer l'email de réinitialisation");
+        }
+
+        return Map.of(
+                "success", true,
+                "message", "📧 Un email de réinitialisation a été envoyé à " + email +
+                        ". Le lien est valable pendant 1 heure.",
+                "email", email
+        );
+    }
+
+    /**
+     * Vérifier le token de réinitialisation (pour afficher le formulaire)
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> validateResetToken(String token) {
+        log.info("Validation du token de réinitialisation");
+
+        User user = userRepository.findByPasswordResetToken(token)
+                .orElseThrow(() -> new RuntimeException("Token de réinitialisation invalide ou expiré"));
+
+        // Vérifier l'expiration
+        if (user.getPasswordResetTokenExpiresAt() == null ||
+                user.getPasswordResetTokenExpiresAt().isBefore(Instant.now())) {
+            throw new RuntimeException("Ce lien de réinitialisation a expiré. Veuillez en demander un nouveau.");
+        }
+
+        return Map.of(
+                "success", true,
+                "email", user.getEmail(),
+                "message", "Token valide"
+        );
+    }
+
+    /**
+     * Réinitialiser le mot de passe avec le token
+     */
+    @Transactional
+    public Map<String, Object> resetPassword(ResetPasswordRequest request) {
+        log.info("Tentative de réinitialisation de mot de passe avec token");
+
+        // 1. Vérifier que les mots de passe correspondent
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new RuntimeException("Les mots de passe ne correspondent pas");
+        }
+
+        // 2. Récupérer l'utilisateur par token
+        User user = userRepository.findByPasswordResetToken(request.getToken())
+                .orElseThrow(() -> new RuntimeException("Token de réinitialisation invalide ou expiré"));
+
+        // 3. Vérifier l'expiration
+        if (user.getPasswordResetTokenExpiresAt() == null ||
+                user.getPasswordResetTokenExpiresAt().isBefore(Instant.now())) {
+            throw new RuntimeException("Ce lien de réinitialisation a expiré. Veuillez en demander un nouveau.");
+        }
+
+        // 4. Mettre à jour le mot de passe dans Keycloak
+        try {
+            keycloakService.updateUserPassword(user.getKeycloakId(), request.getNewPassword());
+            log.info("✅ Mot de passe mis à jour dans Keycloak pour {}", user.getEmail());
+        } catch (Exception e) {
+            log.error("❌ Erreur mise à jour mot de passe Keycloak: {}", e.getMessage());
+            throw new RuntimeException("Impossible de mettre à jour le mot de passe: " + e.getMessage());
+        }
+
+        // 5. Nettoyer les champs de réinitialisation
+        user.setPasswordResetToken(null);
+        user.setPasswordResetTokenExpiresAt(null);
+        user.setPasswordResetAttempts(0);
+        user.setPasswordResetRequestedAt(null);
+
+        userRepository.save(user);
+
+        log.info("✅ Mot de passe réinitialisé avec succès pour {}", user.getEmail());
+
+        return Map.of(
+                "success", true,
+                "message", "✅ Votre mot de passe a été réinitialisé avec succès. Vous pouvez maintenant vous connecter.",
+                "email", user.getEmail()
+        );
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 }
