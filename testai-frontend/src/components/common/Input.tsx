@@ -1,13 +1,20 @@
-
 import React from 'react';
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
   icon?: React.ReactNode;
+  type?: string; // optional override
 }
 
-const Input: React.FC<InputProps> = ({ label, error, icon, className = '', ...props }) => {
+const Input: React.FC<InputProps> = ({
+  label,
+  error,
+  icon,
+  className = '',
+  type = 'text', // 👈 default type
+  ...props
+}) => {
   return (
     <div className="w-full mb-4">
       {label && (
@@ -15,13 +22,16 @@ const Input: React.FC<InputProps> = ({ label, error, icon, className = '', ...pr
           {label}
         </label>
       )}
+
       <div className="relative">
         {icon && (
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
             {icon}
           </div>
         )}
+
         <input
+          type={type} // 👈 explicitly set here
           className={`
             block w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 outline-none
             ${icon ? 'pl-10' : ''}
@@ -31,7 +41,12 @@ const Input: React.FC<InputProps> = ({ label, error, icon, className = '', ...pr
           {...props}
         />
       </div>
-      {error && <p className="mt-1 text-xs text-danger font-medium">{error}</p>}
+
+      {error && (
+        <p className="mt-1 text-xs text-danger font-medium">
+          {error}
+        </p>
+      )}
     </div>
   );
 };
