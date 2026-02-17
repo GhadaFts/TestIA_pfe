@@ -1,0 +1,72 @@
+spring:
+  application:
+    name: api-gateway
+
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+
+      routes:
+        - id: user-service
+          uri: lb://user-service
+          predicates:
+            - Path=/api/users/**, /api/auth/**
+          filters:
+            - StripPrefix=0
+
+        - id: invitations
+          uri: lb://user-service
+          predicates:
+            - Path=/api/invitations/**
+          filters:
+            - StripPrefix=0
+
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: false
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://keycloak:8080/realms/testai}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://keycloak:8080/realms/testai/protocol/openid-connect/certs}
+
+server:
+  port: ${SERVER_PORT:8888}
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: ${EUREKA_URL:http://eureka-server:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${random.value}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO
+    org.springframework.security: INFO

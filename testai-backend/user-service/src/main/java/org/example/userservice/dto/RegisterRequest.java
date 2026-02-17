@@ -5,7 +5,11 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
-
+/**
+ * DTO pour la requête d'inscription
+ * Email OBLIGATOIRE
+ * Téléphone OPTIONNEL (pour quand la vérification SMS sera disponible)
+ */
 @Data
 public class RegisterRequest {
 
@@ -21,8 +25,11 @@ public class RegisterRequest {
     @Size(min = 8, message = "Le mot de passe doit contenir au moins 8 caractères")
     private String password;
 
+    // ⭐️ OPTIONNEL : Numéro de téléphone (pour future vérification SMS)
+    // Retirez @NotBlank pour le rendre optionnel
+    private String phoneNumber; // Format : +33612345678 ou 0612345678
+
     private String company;
 
-    // ⭐️ NOUVEAU : Rôle demandé (optionnel, par défaut MANAGER)
     private String role; // "ADMIN", "MANAGER", ou "DEVELOPER"
 }

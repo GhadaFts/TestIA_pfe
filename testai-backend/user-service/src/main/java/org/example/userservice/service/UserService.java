@@ -22,106 +22,366 @@ public class UserService {
     private final UserRepository userRepository;
     private final KeycloakService keycloakService;
     private final TransactionTemplate transactionTemplate;
+    private final EmailService emailService;
+    private final TwilioVerifyService twilioVerifyService;
+
+    // ⭐️ CONFIGURATION : Activer/Désactiver la vérification téléphone
+    private static final boolean PHONE_VERIFICATION_ENABLED = false; // ← Mettre à true pour activer
 
     /**
-     * Inscription d'un nouvel utilisateur
+     * ⭐️ INSCRIPTION AVEC VALIDATION EMAIL (ET TÉLÉPHONE OPTIONNEL)
+     *
+     * Flux :
+     * 1. Vérifier email et téléphone non utilisés
+     * 2. Créer utilisateur en DB (inactif, pas encore dans Keycloak)
+     * 3. Envoyer email de vérification
+     * 4. SI PHONE_VERIFICATION_ENABLED : Envoyer SMS de vérification
+     * 5. Retourner message approprié
      */
     @Transactional
-    public AuthResponse register(RegisterRequest request) {
-        log.info("Tentative d'inscription pour l'email: {}", request.getEmail());
+    public Map<String, Object> register(RegisterRequest request) {
+        log.info("Tentative d'inscription pour l'email: {} et téléphone: {}",
+                request.getEmail(), request.getPhoneNumber());
 
         // 1. Vérifier si l'email existe déjà
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new RuntimeException("Cet email est déjà utilisé");
         }
 
-        // ⭐️ NOUVEAU : Déterminer le rôle (par défaut MANAGER si non spécifié)
+        String formattedPhone = null;
+
+        // 2. Valider le téléphone seulement si fourni
+        if (request.getPhoneNumber() != null && !request.getPhoneNumber().isEmpty()) {
+            formattedPhone = twilioVerifyService.formatFrenchPhoneNumber(request.getPhoneNumber());
+
+            if (!twilioVerifyService.isValidPhoneNumber(formattedPhone)) {
+                throw new RuntimeException("Format de numéro de téléphone invalide. Utilisez le format international (+33612345678) ou français (0612345678)");
+            }
+
+            // Vérifier si le téléphone est déjà utilisé
+            if (userRepository.findByPhoneNumber(formattedPhone).isPresent()) {
+                throw new RuntimeException("Ce numéro de téléphone est déjà utilisé par un autre compte");
+            }
+        }
+
+        // 3. Déterminer le rôle
         String role = request.getRole();
         if (role == null || role.isEmpty()) {
             role = "MANAGER";
         }
 
-        // ⭐️ NOUVEAU : Valider le rôle
         if (!role.equals("ADMIN") && !role.equals("MANAGER") && !role.equals("DEVELOPER")) {
-            throw new RuntimeException("Rôle invalide. Valeurs acceptées: ADMIN, MANAGER, DEVELOPER");
+            throw new RuntimeException("Rôle invalide");
         }
 
-        log.info("📝 Rôle demandé: {}", role);
+        // 4. Générer les tokens de vérification
+        String emailVerificationToken = UUID.randomUUID().toString();
+        Instant emailTokenExpiresAt = Instant.now().plusSeconds(86400); // 24 heures
 
-        // 2. Créer l'utilisateur dans Keycloak AVEC le rôle
-        String keycloakId;
-        try {
-            // ⭐️ MODIFIÉ : Passer le rôle à createUser()
-            keycloakId = keycloakService.createUser(
-                    request.getEmail(),
-                    request.getPassword(),
-                    request.getName(),
-                    role  // ← Passer le rôle ici
-            );
-            log.info("✅ Utilisateur créé dans Keycloak avec l'ID: {} et le rôle: {}", keycloakId, role);
-        } catch (Exception e) {
-            log.error("❌ Erreur création Keycloak: {}", e.getMessage());
-            throw new RuntimeException("Impossible de créer l'utilisateur dans Keycloak: " + e.getMessage());
-        }
-
-        // 3. Créer l'utilisateur dans PostgreSQL
+        // 5. Créer l'utilisateur dans PostgreSQL (INACTIF, pas encore dans Keycloak)
         User user = new User();
         user.setName(request.getName());
         user.setEmail(request.getEmail());
-        // ⭐️ MODIFIÉ : Utiliser le rôle de la requête (converti en enum)
         user.setRole(UserRole.valueOf(role));
-        user.setKeycloakId(keycloakId);
+        user.setKeycloakId(null); // Sera créé après vérification
         user.setCompany(request.getCompany());
-        user.setIsActive(true);
+        user.setIsActive(false); // Inactif jusqu'à vérification
+
+        // Vérification email
+        user.setEmailVerified(false);
+        user.setEmailVerificationToken(emailVerificationToken);
+        user.setVerificationTokenExpiresAt(emailTokenExpiresAt);
+        user.setTempPassword(request.getPassword());
+
+        // Vérification téléphone
+        user.setPhoneNumber(formattedPhone);
+        // ⭐️ SI VÉRIFICATION TÉLÉPHONE DÉSACTIVÉE : Marquer comme déjà vérifié
+        user.setPhoneVerified(!PHONE_VERIFICATION_ENABLED); // true si désactivé, false si activé
+        user.setPhoneVerificationAttempts(0);
+        user.setPhoneVerificationSentAt(PHONE_VERIFICATION_ENABLED ? Instant.now() : null);
 
         user = userRepository.save(user);
-        log.info("✅ Utilisateur sauvegardé dans PostgreSQL avec l'ID: {} et le rôle: {}", user.getId(), role);
+        log.info("✅ Utilisateur pré-enregistré dans PostgreSQL avec l'ID: {}", user.getId());
 
-        // 4. Authentifier l'utilisateur
-        Map<String, Object> keycloakResponse;
+        // 6. Envoyer l'email de vérification
         try {
-            keycloakResponse = keycloakService.authenticateUser(
-                    request.getEmail(),
-                    request.getPassword()
+            emailService.sendVerificationEmail(
+                    user.getEmail(),
+                    user.getName(),
+                    emailVerificationToken
             );
-            log.info("✅ Authentification réussie");
+            log.info("📧 Email de vérification envoyé à {}", user.getEmail());
         } catch (Exception e) {
-            log.error("❌ Erreur authentification: {}", e.getMessage());
-            throw new RuntimeException("Erreur lors de l'authentification: " + e.getMessage());
+            log.error("⚠️ Impossible d'envoyer l'email: {}", e.getMessage());
+            // Supprimer l'utilisateur si l'email échoue
+            userRepository.delete(user);
+            throw new RuntimeException("Impossible d'envoyer l'email de vérification. Veuillez réessayer.");
         }
 
-        // 5. Mettre à jour last_login
-        user.setLastLogin(Instant.now());
+        // ========================================
+        // ⭐️ SECTION TÉLÉPHONE - DÉSACTIVÉE TEMPORAIREMENT
+        // Décommentez cette section quand votre pays autorisera les SMS
+        // ========================================
+        /*
+        // 7. Envoyer le SMS de vérification (SI ACTIVÉ)
+        if (PHONE_VERIFICATION_ENABLED && formattedPhone != null) {
+            try {
+                twilioVerifyService.sendVerificationCode(formattedPhone);
+                log.info("📱 SMS de vérification envoyé au {}", formattedPhone);
+            } catch (Exception e) {
+                log.error("⚠️ Impossible d'envoyer le SMS: {}", e.getMessage());
+                // Supprimer l'utilisateur si le SMS échoue
+                userRepository.delete(user);
+                throw new RuntimeException("Impossible d'envoyer le SMS de vérification. Vérifiez le numéro de téléphone.");
+            }
+        }
+        */
+
+        // 8. Retourner la réponse appropriée
+        if (PHONE_VERIFICATION_ENABLED && formattedPhone != null) {
+            return Map.of(
+                    "success", true,
+                    "message", "📧 Un email de vérification a été envoyé à " + user.getEmail() +
+                            " et 📱 un SMS a été envoyé au " + formattedPhone +
+                            ". Veuillez vérifier les deux pour activer votre compte.",
+                    "email", user.getEmail(),
+                    "phoneNumber", formattedPhone,
+                    "requiresEmailVerification", true,
+                    "requiresPhoneVerification", true
+            );
+        } else {
+            // Vérification téléphone désactivée
+            return Map.of(
+                    "success", true,
+                    "message", "📧 Un email de vérification a été envoyé à " + user.getEmail() +
+                            ". Veuillez vérifier votre email pour activer votre compte.",
+                    "email", user.getEmail(),
+                    "requiresEmailVerification", true,
+                    "requiresPhoneVerification", false,
+                    "note", "⚠️ Vérification par téléphone temporairement désactivée"
+            );
+        }
+    }
+
+    /**
+     * ⭐️ VÉRIFIER LE CODE SMS
+     * Cette méthode reste disponible pour quand vous réactiverez la vérification téléphone
+     */
+    @Transactional
+    public Map<String, Object> verifyPhoneNumber(String email, String code) {
+        if (!PHONE_VERIFICATION_ENABLED) {
+            throw new RuntimeException("La vérification par téléphone est temporairement désactivée");
+        }
+
+        log.info("Tentative de vérification du téléphone pour: {}", email);
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+
+        if (user.getPhoneNumber() == null || user.getPhoneNumber().isEmpty()) {
+            throw new RuntimeException("Aucun numéro de téléphone enregistré");
+        }
+
+        if (user.getPhoneVerified()) {
+            if (user.getEmailVerified()) {
+                return Map.of(
+                        "success", true,
+                        "message", "✅ Votre compte est déjà entièrement vérifié",
+                        "emailVerified", true,
+                        "phoneVerified", true,
+                        "accountActive", user.getIsActive()
+                );
+            } else {
+                return Map.of(
+                        "success", true,
+                        "message", "✅ Téléphone déjà vérifié. Veuillez vérifier votre email pour activer votre compte.",
+                        "emailVerified", false,
+                        "phoneVerified", true,
+                        "accountActive", false
+                );
+            }
+        }
+
+        if (user.getPhoneVerificationAttempts() >= 3) {
+            throw new RuntimeException("Nombre maximum de tentatives atteint. Veuillez demander un nouveau code.");
+        }
+
+        // Vérifier le code avec Twilio Verify
+        boolean isValid = twilioVerifyService.verifyCode(user.getPhoneNumber(), code);
+
+        if (!isValid) {
+            user.setPhoneVerificationAttempts(user.getPhoneVerificationAttempts() + 1);
+            userRepository.save(user);
+
+            int remainingAttempts = 3 - user.getPhoneVerificationAttempts();
+            if (remainingAttempts > 0) {
+                throw new RuntimeException("Code incorrect. Il vous reste " + remainingAttempts + " tentative(s).");
+            } else {
+                throw new RuntimeException("Code incorrect. Nombre maximum de tentatives atteint.");
+            }
+        }
+
+        user.setPhoneVerified(true);
+        user.setPhoneVerificationAttempts(0);
         userRepository.save(user);
 
-        // 6. Construire et retourner la réponse
-        UserDTO userDTO = mapToDTO(user);
+        log.info("✅ Numéro de téléphone vérifié pour {}", email);
 
-        return new AuthResponse(
-                (String) keycloakResponse.get("access_token"),
-                (String) keycloakResponse.get("refresh_token"),
-                (Integer) keycloakResponse.get("expires_in"),
-                userDTO
+        if (user.getEmailVerified()) {
+            return createKeycloakAccountAndActivate(user);
+        } else {
+            return Map.of(
+                    "success", true,
+                    "message", "✅ Téléphone vérifié ! Veuillez maintenant vérifier votre email pour activer votre compte.",
+                    "emailVerified", false,
+                    "phoneVerified", true,
+                    "accountActive", false
+            );
+        }
+    }
+
+    /**
+     * ⭐️ VÉRIFIER L'EMAIL ET ACTIVER LE COMPTE
+     * Si vérification téléphone désactivée, active directement le compte
+     */
+    @Transactional
+    public Map<String, Object> verifyEmailAndActivate(String token) {
+        log.info("Tentative de vérification email avec token: {}", token);
+
+        User user = userRepository.findByEmailVerificationToken(token)
+                .orElseThrow(() -> new RuntimeException("Token de vérification invalide ou expiré"));
+
+        if (user.getVerificationTokenExpiresAt() == null ||
+                user.getVerificationTokenExpiresAt().isBefore(Instant.now())) {
+            throw new RuntimeException("Le lien de vérification a expiré. Veuillez demander un nouveau lien.");
+        }
+
+        if (user.getEmailVerified()) {
+            // Email déjà vérifié
+            if (user.getPhoneVerified() && user.getIsActive()) {
+                return Map.of(
+                        "success", true,
+                        "message", "✅ Votre compte est déjà entièrement vérifié et actif",
+                        "emailVerified", true,
+                        "phoneVerified", true,
+                        "accountActive", true
+                );
+            } else if (user.getPhoneVerified() && !user.getIsActive()) {
+                return createKeycloakAccountAndActivate(user);
+            } else if (PHONE_VERIFICATION_ENABLED) {
+                return Map.of(
+                        "success", true,
+                        "message", "✅ Email déjà vérifié. Veuillez vérifier votre téléphone pour activer votre compte.",
+                        "emailVerified", true,
+                        "phoneVerified", false,
+                        "accountActive", false
+                );
+            } else {
+                // Téléphone désactivé, activer directement
+                return createKeycloakAccountAndActivate(user);
+            }
+        }
+
+        // Marquer l'email comme vérifié
+        user.setEmailVerified(true);
+        user.setEmailVerificationToken(null);
+        user.setVerificationTokenExpiresAt(null);
+        userRepository.save(user);
+
+        log.info("✅ Email vérifié pour {}", user.getEmail());
+
+        // ⭐️ Si vérification téléphone ACTIVÉE : vérifier si téléphone aussi vérifié
+        if (PHONE_VERIFICATION_ENABLED) {
+            if (user.getPhoneVerified()) {
+                // LES DEUX sont vérifiés : activer
+                return createKeycloakAccountAndActivate(user);
+            } else {
+                // Email vérifié mais pas le téléphone
+                return Map.of(
+                        "success", true,
+                        "message", "✅ Email vérifié ! Veuillez maintenant vérifier votre téléphone (SMS envoyé au " +
+                                user.getPhoneNumber() + ") pour activer votre compte.",
+                        "emailVerified", true,
+                        "phoneVerified", false,
+                        "accountActive", false
+                );
+            }
+        } else {
+            // ⭐️ Vérification téléphone DÉSACTIVÉE : activer directement après email
+            log.info("📱 Vérification téléphone désactivée - activation directe du compte");
+            return createKeycloakAccountAndActivate(user);
+        }
+    }
+
+    /**
+     * ⭐️ MÉTHODE PRIVÉE : Créer le compte Keycloak et activer l'utilisateur
+     */
+    private Map<String, Object> createKeycloakAccountAndActivate(User user) {
+        // Créer l'utilisateur dans Keycloak
+        String keycloakId;
+        try {
+            keycloakId = keycloakService.createUser(
+                    user.getEmail(),
+                    user.getTempPassword(),
+                    user.getName(),
+                    user.getRole().name()
+            );
+            log.info("✅ Utilisateur créé dans Keycloak avec l'ID: {}", keycloakId);
+        } catch (Exception e) {
+            log.error("❌ Erreur création Keycloak: {}", e.getMessage());
+            throw new RuntimeException("Erreur lors de la création du compte: " + e.getMessage());
+        }
+
+        // Activer le compte
+        user.setKeycloakId(keycloakId);
+        user.setIsActive(true);
+        user.setTempPassword(null);
+        userRepository.save(user);
+
+        String message;
+        if (PHONE_VERIFICATION_ENABLED) {
+            message = "🎉 Votre compte est maintenant entièrement activé ! Email ET téléphone vérifiés. Vous pouvez vous connecter.";
+            log.info("✅ Compte entièrement activé pour {} (Email ET Téléphone vérifiés)", user.getEmail());
+        } else {
+            message = "🎉 Votre compte est maintenant activé ! Email vérifié. Vous pouvez vous connecter.";
+            log.info("✅ Compte activé pour {} (Email vérifié)", user.getEmail());
+        }
+
+        return Map.of(
+                "success", true,
+                "message", message,
+                "emailVerified", true,
+                "phoneVerified", user.getPhoneVerified(),
+                "accountActive", true
         );
     }
 
     /**
-     * Connexion d'un utilisateur
+     * Connexion
      */
     @Transactional
     public AuthResponse login(LoginRequest request) {
         log.info("Tentative de connexion pour l'email: {}", request.getEmail());
 
-        // 1. Récupérer l'utilisateur
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
-        // 2. Vérifier si le compte est actif
-        if (!user.getIsActive()) {
-            throw new RuntimeException("Compte désactivé");
+        // Vérifier email
+        if (!user.getEmailVerified()) {
+            throw new RuntimeException("Veuillez d'abord vérifier votre email. Un lien de vérification vous a été envoyé.");
         }
 
-        // 3. Authentifier via Keycloak
+        // ⭐️ Vérifier téléphone SEULEMENT si la vérification est activée
+        if (PHONE_VERIFICATION_ENABLED && !user.getPhoneVerified()) {
+            throw new RuntimeException("Veuillez d'abord vérifier votre téléphone. Un SMS vous a été envoyé.");
+        }
+
+        // Vérifier compte actif
+        if (!user.getIsActive()) {
+            throw new RuntimeException("Compte en cours d'activation. Veuillez vérifier votre email" +
+                    (PHONE_VERIFICATION_ENABLED ? " et téléphone." : "."));
+        }
+
         Map<String, Object> keycloakResponse = keycloakService.authenticateUser(
                 request.getEmail(),
                 request.getPassword()
@@ -129,11 +389,9 @@ public class UserService {
 
         log.info("Authentification réussie pour l'utilisateur: {}", request.getEmail());
 
-        // 4. Mettre à jour la date de dernière connexion
         user.setLastLogin(Instant.now());
         userRepository.save(user);
 
-        // 5. Construire la réponse
         UserDTO userDTO = mapToDTO(user);
 
         return new AuthResponse(
@@ -145,8 +403,83 @@ public class UserService {
     }
 
     /**
-     * Récupérer un utilisateur par ID
+     * Renvoyer le code SMS
      */
+    @Transactional
+    public void resendPhoneVerificationCode(String email) {
+        if (!PHONE_VERIFICATION_ENABLED) {
+            throw new RuntimeException("La vérification par téléphone est temporairement désactivée");
+        }
+
+        log.info("Renvoi du code de vérification pour: {}", email);
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+
+        if (user.getPhoneNumber() == null || user.getPhoneNumber().isEmpty()) {
+            throw new RuntimeException("Aucun numéro de téléphone enregistré");
+        }
+
+        if (user.getPhoneVerified()) {
+            throw new RuntimeException("Numéro de téléphone déjà vérifié");
+        }
+
+        // Rate limiting
+        if (user.getPhoneVerificationSentAt() != null) {
+            long secondsSinceLastSMS = Instant.now().getEpochSecond() -
+                    user.getPhoneVerificationSentAt().getEpochSecond();
+            if (secondsSinceLastSMS < 60) {
+                long waitTime = 60 - secondsSinceLastSMS;
+                throw new RuntimeException("Veuillez attendre " + waitTime + " secondes avant de demander un nouveau code");
+            }
+        }
+
+        user.setPhoneVerificationAttempts(0);
+        user.setPhoneVerificationSentAt(Instant.now());
+        userRepository.save(user);
+
+        try {
+            twilioVerifyService.sendVerificationCode(user.getPhoneNumber());
+            log.info("✅ Nouveau code envoyé au {}", user.getPhoneNumber());
+        } catch (Exception e) {
+            log.error("❌ Erreur envoi SMS: {}", e.getMessage());
+            throw new RuntimeException("Impossible d'envoyer le SMS");
+        }
+    }
+
+    /**
+     * Renvoyer l'email de vérification
+     */
+    @Transactional
+    public void resendVerificationEmail(String email) {
+        log.info("Demande de renvoi d'email de vérification pour {}", email);
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+
+        if (user.getEmailVerified()) {
+            throw new RuntimeException("Email déjà vérifié");
+        }
+
+        String newToken = UUID.randomUUID().toString();
+        Instant newExpiresAt = Instant.now().plusSeconds(86400);
+
+        user.setEmailVerificationToken(newToken);
+        user.setVerificationTokenExpiresAt(newExpiresAt);
+
+        userRepository.save(user);
+
+        emailService.resendVerificationEmail(
+                user.getEmail(),
+                user.getName(),
+                newToken
+        );
+
+        log.info("📧 Email de vérification renvoyé à {}", email);
+    }
+
+    // Autres méthodes (inchangées)
+
     @Transactional(readOnly = true)
     public UserDTO getUserById(UUID id) {
         User user = userRepository.findById(id)
@@ -154,9 +487,6 @@ public class UserService {
         return mapToDTO(user);
     }
 
-    /**
-     * Récupérer un utilisateur par email
-     */
     @Transactional(readOnly = true)
     public UserDTO getUserByEmail(String email) {
         User user = userRepository.findByEmail(email)
@@ -164,9 +494,6 @@ public class UserService {
         return mapToDTO(user);
     }
 
-    /**
-     * Mettre à jour un utilisateur
-     */
     @Transactional
     public UserDTO updateUser(UUID id, UserDTO userDTO) {
         User user = userRepository.findById(id)
@@ -188,9 +515,6 @@ public class UserService {
         return mapToDTO(user);
     }
 
-    /**
-     * Rafraîchir le token
-     */
     public AuthResponse refreshToken(String refreshToken) {
         log.info("Rafraîchissement du token");
 
@@ -204,9 +528,6 @@ public class UserService {
         );
     }
 
-    /**
-     * Mapper User entity vers UserDTO
-     */
     private UserDTO mapToDTO(User user) {
         return new UserDTO(
                 user.getId(),
@@ -220,4 +541,161 @@ public class UserService {
                 user.getLastLogin()
         );
     }
+    /**
+     * Demander la réinitialisation du mot de passe
+     * Génère un token et envoie un email
+     */
+    @Transactional
+    public Map<String, Object> requestPasswordReset(String email) {
+        log.info("Demande de réinitialisation de mot de passe pour: {}", email);
+
+        // 1. Vérifier que l'utilisateur existe
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+
+        // 2. Vérifier que le compte est actif
+        if (!user.getIsActive()) {
+            throw new RuntimeException("Ce compte est désactivé. Veuillez contacter le support.");
+        }
+
+        // 3. Rate limiting : Max 3 demandes par heure
+        if (user.getPasswordResetRequestedAt() != null) {
+            long minutesSinceLastRequest = (Instant.now().getEpochSecond() -
+                    user.getPasswordResetRequestedAt().getEpochSecond()) / 60;
+
+            if (minutesSinceLastRequest < 60) {
+                if (user.getPasswordResetAttempts() >= 3) {
+                    long waitTime = 60 - minutesSinceLastRequest;
+                    throw new RuntimeException("Trop de tentatives. Veuillez réessayer dans " + waitTime + " minutes.");
+                }
+            } else {
+                // Reset les tentatives après 1 heure
+                user.setPasswordResetAttempts(0);
+            }
+        }
+
+        // 4. Générer le token de réinitialisation
+        String resetToken = UUID.randomUUID().toString();
+        Instant expiresAt = Instant.now().plusSeconds(3600); // 1 heure
+
+        // 5. Mettre à jour l'utilisateur
+        user.setPasswordResetToken(resetToken);
+        user.setPasswordResetTokenExpiresAt(expiresAt);
+        user.setPasswordResetAttempts((user.getPasswordResetAttempts() != null ?
+                user.getPasswordResetAttempts() : 0) + 1);
+        user.setPasswordResetRequestedAt(Instant.now());
+
+        userRepository.save(user);
+        log.info("✅ Token de réinitialisation généré pour {}", email);
+
+        // 6. Envoyer l'email
+        try {
+            emailService.sendPasswordResetEmail(
+                    user.getEmail(),
+                    user.getName(),
+                    resetToken
+            );
+            log.info("📧 Email de réinitialisation envoyé à {}", email);
+        } catch (Exception e) {
+            log.error("⚠️ Impossible d'envoyer l'email: {}", e.getMessage());
+            throw new RuntimeException("Impossible d'envoyer l'email de réinitialisation");
+        }
+
+        return Map.of(
+                "success", true,
+                "message", "📧 Un email de réinitialisation a été envoyé à " + email +
+                        ". Le lien est valable pendant 1 heure.",
+                "email", email
+        );
+    }
+
+    /**
+     * Vérifier le token de réinitialisation (pour afficher le formulaire)
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> validateResetToken(String token) {
+        log.info("Validation du token de réinitialisation");
+
+        User user = userRepository.findByPasswordResetToken(token)
+                .orElseThrow(() -> new RuntimeException("Token de réinitialisation invalide ou expiré"));
+
+        // Vérifier l'expiration
+        if (user.getPasswordResetTokenExpiresAt() == null ||
+                user.getPasswordResetTokenExpiresAt().isBefore(Instant.now())) {
+            throw new RuntimeException("Ce lien de réinitialisation a expiré. Veuillez en demander un nouveau.");
+        }
+
+        return Map.of(
+                "success", true,
+                "email", user.getEmail(),
+                "message", "Token valide"
+        );
+    }
+
+    /**
+     * Réinitialiser le mot de passe avec le token
+     */
+    @Transactional
+    public Map<String, Object> resetPassword(ResetPasswordRequest request) {
+        log.info("Tentative de réinitialisation de mot de passe avec token");
+
+        // 1. Vérifier que les mots de passe correspondent
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new RuntimeException("Les mots de passe ne correspondent pas");
+        }
+
+        // 2. Récupérer l'utilisateur par token
+        User user = userRepository.findByPasswordResetToken(request.getToken())
+                .orElseThrow(() -> new RuntimeException("Token de réinitialisation invalide ou expiré"));
+
+        // 3. Vérifier l'expiration
+        if (user.getPasswordResetTokenExpiresAt() == null ||
+                user.getPasswordResetTokenExpiresAt().isBefore(Instant.now())) {
+            throw new RuntimeException("Ce lien de réinitialisation a expiré. Veuillez en demander un nouveau.");
+        }
+
+        // 4. Mettre à jour le mot de passe dans Keycloak
+        try {
+            keycloakService.updateUserPassword(user.getKeycloakId(), request.getNewPassword());
+            log.info("✅ Mot de passe mis à jour dans Keycloak pour {}", user.getEmail());
+        } catch (Exception e) {
+            log.error("❌ Erreur mise à jour mot de passe Keycloak: {}", e.getMessage());
+            throw new RuntimeException("Impossible de mettre à jour le mot de passe: " + e.getMessage());
+        }
+
+        // 5. Nettoyer les champs de réinitialisation
+        user.setPasswordResetToken(null);
+        user.setPasswordResetTokenExpiresAt(null);
+        user.setPasswordResetAttempts(0);
+        user.setPasswordResetRequestedAt(null);
+
+        userRepository.save(user);
+
+        log.info("✅ Mot de passe réinitialisé avec succès pour {}", user.getEmail());
+
+        return Map.of(
+                "success", true,
+                "message", "✅ Votre mot de passe a été réinitialisé avec succès. Vous pouvez maintenant vous connecter.",
+                "email", user.getEmail()
+        );
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 }
