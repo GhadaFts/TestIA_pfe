@@ -15,10 +15,10 @@ import {
   TrashIcon
 } from '@heroicons/react/24/outline';
 
-type Tab = 'swagger' | 'postman' | 'manual';
+type Tab = 'SWAGGER' | 'POSTMAN' | 'MANUAL';
 
 const AddServicePage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<Tab>('swagger');
+  const [activeTab, setActiveTab] = useState<Tab>('SWAGGER');
   const [loading, setLoading] = useState(false);
   const [authType, setAuthType] = useState('none');
   const [manualEndpoints, setManualEndpoints] = useState([{ method: 'GET', path: '', description: '' }]);
@@ -57,22 +57,22 @@ const AddServicePage: React.FC = () => {
             {/* Tabs */}
             <div className="flex border-b border-gray-200 bg-gray-50">
               <TabButton 
-                active={activeTab === 'swagger'} 
-                onClick={() => setActiveTab('swagger')}
+                active={activeTab === 'SWAGGER'} 
+                onClick={() => setActiveTab('SWAGGER')}
                 icon={<DocumentIcon className="w-5 h-5" />}
               >
-                Swagger / OpenAPI
+                SWAGGER / OpenAPI
               </TabButton>
               <TabButton 
-                active={activeTab === 'postman'} 
-                onClick={() => setActiveTab('postman')}
+                active={activeTab === 'POSTMAN'} 
+                onClick={() => setActiveTab('POSTMAN')}
                 icon={<FolderIcon className="w-5 h-5" />}
               >
                 Postman Collection
               </TabButton>
               <TabButton 
-                active={activeTab === 'manual'} 
-                onClick={() => setActiveTab('manual')}
+                active={activeTab === 'MANUAL'} 
+                onClick={() => setActiveTab('MANUAL')}
                 icon={<LinkIcon className="w-5 h-5" />}
               >
                 Saisie Manuelle
@@ -81,7 +81,7 @@ const AddServicePage: React.FC = () => {
 
             <div className="p-8">
               <form onSubmit={handleAnalyze}>
-                {activeTab === 'swagger' && (
+                {activeTab === 'SWAGGER' && (
                   <div className="space-y-6">
                     <Input label="Nom du service" placeholder="ex: User Management API" required />
                     <Input label="URL de base du service" placeholder="http://api.example.com/v1" required />
@@ -112,7 +112,7 @@ const AddServicePage: React.FC = () => {
                   </div>
                 )}
 
-                {activeTab === 'postman' && (
+                {activeTab === 'POSTMAN' && (
                   <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-2xl py-16 hover:bg-gray-50 cursor-pointer transition">
                     <FolderIcon className="w-16 h-16 text-gray-300 mb-4" />
                     <p className="font-bold text-gray-700">Glissez-déposez votre fichier JSON</p>
@@ -122,7 +122,7 @@ const AddServicePage: React.FC = () => {
                   </div>
                 )}
 
-                {activeTab === 'manual' && (
+                {activeTab === 'MANUAL' && (
                   <div className="space-y-6">
                     <Input label="Nom du service" placeholder="Mon API manuelle" required />
                     <div className="space-y-4">
