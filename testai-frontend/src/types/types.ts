@@ -44,16 +44,3 @@ export interface DashboardStats {
   successRate: number;
   lastExecution: string;
 }
-
-export enum DocMode {
-  SWAGGER = 'SWAGGER',
-  MANUAL = 'MANUAL',
-  POSTMAN = 'POSTMAN'
-}
-
-export enum AuthType {
-  NONE = 'NONE',
-  APIKEY = 'APIKEY',
-  BEARER = 'BEARER',
-  BASIC = 'BASIC'
-}

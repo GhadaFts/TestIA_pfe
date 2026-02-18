@@ -7,16 +7,20 @@ import Card from '../components/common/Card';
 import Input from '../components/common/Input';
 import Button from '../components/common/Button';
 import { 
+  DocumentIcon, 
+  LinkIcon, 
+  FolderIcon, 
   ArrowPathIcon,
   PlusIcon,
   TrashIcon
 } from '@heroicons/react/24/outline';
-import { DocMode, AuthType } from '../types/types'; // Assuming you have a type for DocMode
+
+type Tab = 'SWAGGER' | 'POSTMAN' | 'MANUAL';
 
 const AddServicePage: React.FC = () => {
-  const [docMode, setDocMode] = useState<DocMode>(DocMode.SWAGGER);
+  const [activeTab, setActiveTab] = useState<Tab>('SWAGGER');
   const [loading, setLoading] = useState(false);
-  const [authType, setAuthType] = useState<AuthType>(AuthType.NONE);
+  const [authType, setAuthType] = useState('none');
   const [manualEndpoints, setManualEndpoints] = useState([{ method: 'GET', path: '', description: '' }]);
   const navigate = useNavigate();
 
@@ -50,27 +54,77 @@ const AddServicePage: React.FC = () => {
           </div>
 
           <Card className="mb-8 p-0 overflow-hidden">
+            {/* Tabs */}
+            <div className="flex border-b border-gray-200 bg-gray-50">
+              <TabButton 
+                active={activeTab === 'SWAGGER'} 
+                onClick={() => setActiveTab('SWAGGER')}
+                icon={<DocumentIcon className="w-5 h-5" />}
+              >
+                SWAGGER / OpenAPI
+              </TabButton>
+              <TabButton 
+                active={activeTab === 'POSTMAN'} 
+                onClick={() => setActiveTab('POSTMAN')}
+                icon={<FolderIcon className="w-5 h-5" />}
+              >
+                Postman Collection
+              </TabButton>
+              <TabButton 
+                active={activeTab === 'MANUAL'} 
+                onClick={() => setActiveTab('MANUAL')}
+                icon={<LinkIcon className="w-5 h-5" />}
+              >
+                Saisie Manuelle
+              </TabButton>
+            </div>
 
             <div className="p-8">
               <form onSubmit={handleAnalyze}>
+                {activeTab === 'SWAGGER' && (
                   <div className="space-y-6">
                     <Input label="Nom du service" placeholder="ex: User Management API" required />
-                    <Input label="Description du service" placeholder="ex: This API manages user accounts and authentication" required />
+                    <Input label="URL de base du service" placeholder="http://api.example.com/v1" required />
+                    <Input label="URL de la documentation Swagger (JSON/YAML)" placeholder="/v3/api-docs" />
+                    
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Documentation Type</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Authentification</label>
                       <select 
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary outline-none"
-                        onChange={(e) => setDocMode(e.target.value as DocMode)}
+                        value={authType}
+                        onChange={(e) => setAuthType(e.target.value)}
                       >
-                        <option>Dossier de documentation</option>
-                        <option value={DocMode.SWAGGER}>Swagger / OpenAPI</option>
-                        <option value={DocMode.POSTMAN}>Postman</option>
-                        <option value={DocMode.MANUAL}>Manuelle</option>
+                        <option value="none">Aucune</option>
+                        <option value="apiKey">API Key</option>
+                        <option value="bearer">Bearer Token</option>
+                        <option value="basic">Basic Auth</option>
                       </select>
                     </div>
-                    <Input label="URL de base du service" placeholder="http://api.example.com/v1" required />
-                    {docMode === 'MANUAL' && (
+
+                    {authType !== 'none' && (
+                      <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
+                        <Input 
+                          label={authType === 'apiKey' ? "Clé API" : "Token / Identifiants"} 
+                          placeholder="••••••••" 
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeTab === 'POSTMAN' && (
+                  <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-2xl py-16 hover:bg-gray-50 cursor-pointer transition">
+                    <FolderIcon className="w-16 h-16 text-gray-300 mb-4" />
+                    <p className="font-bold text-gray-700">Glissez-déposez votre fichier JSON</p>
+                    <p className="text-gray-400 text-sm mt-1">ou parcourez vos fichiers</p>
+                    <input type="file" className="hidden" />
+                    <Button variant="outline" className="mt-6" type="button">Parcourir</Button>
+                  </div>
+                )}
+
+                {activeTab === 'MANUAL' && (
                   <div className="space-y-6">
+                    <Input label="Nom du service" placeholder="Mon API manuelle" required />
                     <div className="space-y-4">
                       <p className="text-sm font-bold text-gray-400 uppercase tracking-wider">Endpoints</p>
                       {manualEndpoints.map((ep, idx) => (
@@ -110,34 +164,7 @@ const AddServicePage: React.FC = () => {
                     </div>
                   </div>
                 )}
-                    {docMode !== DocMode.MANUAL && (
-                    <Input label="URL de la documentation Swagger (JSON/YAML)" placeholder="/v3/api-docs" type='file' /> 
-                    )}
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Authentification</label>
-                      <select 
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary outline-none"
-                        value={authType}
-                        onChange={(e) => setAuthType(e.target.value as AuthType)}
-                      >
-                        <option value={AuthType.NONE}>Aucune</option>
-                        <option value={AuthType.APIKEY}>API Key</option>
-                        <option value={AuthType.BEARER}>Bearer Token</option>
-                        <option value={AuthType.BASIC}>Basic Auth</option>
-                      </select>
-                    </div>
 
-                    {authType !== AuthType.NONE && (
-                      <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
-                        <Input 
-                          label={authType === AuthType.APIKEY ? "Clé API" : "Token / Identifiants"} 
-                          placeholder="••••••••" 
-                        />
-                      </div>
-                    )}
-
-                  </div>
                 <div className="flex gap-4 mt-12 pt-8 border-t border-gray-100">
                   <Button variant="outline" type="button" onClick={() => navigate('/dashboard')} disabled={loading}>
                     Annuler
@@ -161,5 +188,18 @@ const AddServicePage: React.FC = () => {
     </div>
   );
 };
+
+// Fixed: Using React.FC to properly type internal component props and allow children in JSX
+const TabButton: React.FC<{ active: boolean, children: React.ReactNode, onClick: () => void, icon: React.ReactNode }> = ({ active, children, onClick, icon }) => (
+  <button 
+    className={`flex-1 flex items-center justify-center gap-2 py-4 px-6 font-semibold transition-all duration-200 border-b-2 
+      ${active ? 'border-primary bg-white text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-100'}`}
+    onClick={onClick}
+    type="button"
+  >
+    {icon}
+    {children}
+  </button>
+);
 
 export default AddServicePage;
