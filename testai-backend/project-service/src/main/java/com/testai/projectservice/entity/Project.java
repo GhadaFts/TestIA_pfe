@@ -26,6 +26,9 @@ public class Project {
     private String description;
 
     @Column(nullable = false)
+    private String projectUrl;
+
+    @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     private DocsMode docMode;
 
@@ -37,7 +40,7 @@ public class Project {
     private AuthType authType;
 
     public enum DocsMode {
-        SWAGGER, POSTMAN, MANUAL
+        SWAGGER, MANUAL
     }
     public enum AuthType {
         NONE, BASIC, APIKEY, BEARER

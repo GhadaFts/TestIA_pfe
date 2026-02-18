@@ -19,11 +19,19 @@ public class ProjectService {
 
     @Transactional
     public Project createProject(ProjectDTO request) {
-        String docPath = fileStorageService.store(request.getDocFile(), request.getName());
+        String docPath = "";
+
+        if(request.getDocSubmitMode().equals("url")) {
+            docPath = request.getDocUrl();
+        }
+        else{
+            docPath = fileStorageService.store(request.getDocFile(), request.getName());
+        }
 
         Project project = new Project();
         project.setName(request.getName());
         project.setDescription(request.getDescription());
+        project.setProjectUrl(request.getProjectUrl());
         project.setAuthType(request.getAuthType());
         project.setDocUrl(docPath);
         project.setUserId(request.getUserId());
@@ -51,7 +59,9 @@ public class ProjectService {
         Project project = projectRepository.findById(projectId).orElseThrow();
         String docUrl = project.getDocUrl();
         try{
-            fileStorageService.delete(docUrl);
+            if(!docUrl.startsWith("http")){
+                fileStorageService.delete(docUrl);
+            }
             projectRepository.delete(project);
             return "Project with id '" + projectId + "' deleted successfully";
         }

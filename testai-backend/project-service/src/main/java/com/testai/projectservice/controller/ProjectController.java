@@ -7,9 +7,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @RestController
@@ -18,9 +18,26 @@ public class ProjectController {
     @Autowired
     private ProjectService projectService;
 
+    private boolean isInvalidLink(String url) {
+        try {
+            RestTemplate restTemplate = new RestTemplate();
+            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+            return !response.getStatusCode().is2xxSuccessful();
+        } catch (Exception e) {
+            return true; // failed → invalid
+        }
+    }
+
+
     @PostMapping(path = "/add", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> addProject(@ModelAttribute ProjectDTO request) {
         try {
+            if (isInvalidLink(request.getProjectUrl())){
+                return ResponseEntity.badRequest().body("Invalid Service URL !!");
+            }
+            if(request.getDocSubmitMode().equals("url") && isInvalidLink(request.getDocUrl())){
+                return ResponseEntity.badRequest().body("Invalid Documentation URL !!");
+            }
             Project newProject = projectService.createProject(request);
             return ResponseEntity.ok(newProject);
         } catch (Exception e) {

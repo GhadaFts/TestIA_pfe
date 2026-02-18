@@ -8,10 +8,37 @@ import java.util.UUID;
 public class ProjectDTO {
     private String name;
     private String description;
+    private String projectUrl;
+    private String docSubmitMode;
+    private String docUrl;
     private Project.DocsMode docMode;
     private MultipartFile docFile;
     private UUID userId;
     private Project.AuthType authType;
+
+    public String getDocSubmitMode() {
+        return docSubmitMode;
+    }
+
+    public String getProjectUrl() {
+        return projectUrl;
+    }
+
+    public void setProjectUrl(String projectUrl) {
+        this.projectUrl = projectUrl;
+    }
+
+    public void setDocSubmitMode(String docSubmitMode) {
+        this.docSubmitMode = docSubmitMode;
+    }
+
+    public String getDocUrl() {
+        return docUrl;
+    }
+
+    public void setDocUrl(String docUrl) {
+        this.docUrl = docUrl;
+    }
 
     public Project.AuthType getAuthType() {
         return authType;

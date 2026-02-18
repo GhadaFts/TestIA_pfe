@@ -42,7 +42,8 @@ public class FileStorageService {
             Files.copy(file.getInputStream(), this.rootLocation.resolve(filename));
             return filename;
         } catch (Exception e) {
-            throw new RuntimeException("Failed to store file: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Failed to store file: " + e.getMessage(), e);
         }
     }
 
