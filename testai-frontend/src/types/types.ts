@@ -44,3 +44,15 @@ export interface DashboardStats {
   successRate: number;
   lastExecution: string;
 }
+
+export enum DocMode {
+  SWAGGER = 'SWAGGER',
+  MANUAL = 'MANUAL'
+}
+
+export enum AuthType {
+  NONE = 'NONE',
+  BASIC = 'BASIC',
+  APIKEY = 'APIKEY',
+  BEARER = 'BEARER'
+}
