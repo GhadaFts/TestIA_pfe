@@ -26,7 +26,7 @@ public class UserService {
     private final TwilioVerifyService twilioVerifyService;
 
     // ⭐️ CONFIGURATION : Activer/Désactiver la vérification téléphone
-    private static final boolean PHONE_VERIFICATION_ENABLED = false; // ← Mettre à true pour activer
+    private static final boolean PHONE_VERIFICATION_ENABLED = true; // ← Mettre à true pour activer
 
     /**
      * ⭐️ INSCRIPTION AVEC VALIDATION EMAIL (ET TÉLÉPHONE OPTIONNEL)
@@ -119,10 +119,10 @@ public class UserService {
         }
 
         // ========================================
-        // ⭐️ SECTION TÉLÉPHONE - DÉSACTIVÉE TEMPORAIREMENT
+        //  SECTION TÉLÉPHONE - DÉSACTIVÉE TEMPORAIREMENT
         // Décommentez cette section quand votre pays autorisera les SMS
         // ========================================
-        /*
+
         // 7. Envoyer le SMS de vérification (SI ACTIVÉ)
         if (PHONE_VERIFICATION_ENABLED && formattedPhone != null) {
             try {
@@ -135,7 +135,7 @@ public class UserService {
                 throw new RuntimeException("Impossible d'envoyer le SMS de vérification. Vérifiez le numéro de téléphone.");
             }
         }
-        */
+
 
         // 8. Retourner la réponse appropriée
         if (PHONE_VERIFICATION_ENABLED && formattedPhone != null) {

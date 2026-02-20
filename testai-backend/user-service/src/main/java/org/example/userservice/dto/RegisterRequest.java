@@ -26,8 +26,8 @@ public class RegisterRequest {
     private String password;
 
     // ⭐️ OPTIONNEL : Numéro de téléphone (pour future vérification SMS)
-    // Retirez @NotBlank pour le rendre optionnel
-    private String phoneNumber; // Format : +33612345678 ou 0612345678
+    @NotBlank(message = "Le numéro de téléphone est obligatoire")
+    private String phoneNumber;  // Format : +33612345678 ou 0612345678
 
     private String company;
 

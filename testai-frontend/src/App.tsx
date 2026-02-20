@@ -1,31 +1,89 @@
+import React from "react";
+import {
+  BrowserRouter as Router,  // ⭐️ CHANGÉ : BrowserRouter au lieu de HashRouter
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import LandingPage from "./pages/LandingPage";
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
+import VerifyPhonePage from "./pages/VerifyPhonePage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import Dashboard from "./pages/Dashboard";
+import AddServicePage from "./pages/AddServicePage";
+import ServiceDetailsPage from "./pages/ServiceDetailsPage";
+import TestExecutionPage from "./pages/TestExecutionPage";
+import ReportsPage from "./pages/ReportsPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
+import VerifyEmailPage from "./pages/VerifyEmailPage";
 
-import React from 'react';
-import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import LandingPage from './pages/LandingPage';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import Dashboard from './pages/Dashboard';
-import AddServicePage from './pages/AddServicePage';
-import ServiceDetailsPage from './pages/ServiceDetailsPage';
-import TestExecutionPage from './pages/TestExecutionPage';
-import ReportsPage from './pages/ReportsPage';
+// Services
+import authService from "./services/authService";
+import VerificationPendingPage from "./pages/VerificationPendingPage";
+
+// Composant de protection des routes
+const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
+  const isAuthenticated = authService.isAuthenticated();
+  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
+};
 
 const App: React.FC = () => {
-  
   return (
     <Router>
-       <Routes>
+      <Routes>
+        {/* Routes publiques */}
         <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
-        
-        {/* Protected Routes Simulation */}
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/add-service" element={<AddServicePage />} />
-        <Route path="/service/:id" element={<ServiceDetailsPage />} />
-        <Route path="/service/:id/execute" element={<TestExecutionPage />} />
-        <Route path="/reports" element={<ReportsPage />} />
-        
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/verification-pending" element={<VerificationPendingPage />} />
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
+        <Route path="/verify-phone" element={<VerifyPhonePage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+        {/* Protected Routes */}
+        <Route
+          path="/dashboard"
+          element={
+            <PrivateRoute>
+              <Dashboard />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/add-service"
+          element={
+            <PrivateRoute>
+              <AddServicePage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/service/:id"
+          element={
+            <PrivateRoute>
+              <ServiceDetailsPage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/service/:id/execute"
+          element={
+            <PrivateRoute>
+              <TestExecutionPage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/reports"
+          element={
+            <PrivateRoute>
+              <ReportsPage />
+            </PrivateRoute>
+          }
+        />
+
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

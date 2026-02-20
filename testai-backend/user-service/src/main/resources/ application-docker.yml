@@ -20,3 +20,6 @@ eureka:
     serviceUrl:
       defaultZone: http://eureka-server:8761/eureka/
     enabled: true
+
+app:
+  frontend-url: ${FRONTEND_URL:http://localhost:5173}
