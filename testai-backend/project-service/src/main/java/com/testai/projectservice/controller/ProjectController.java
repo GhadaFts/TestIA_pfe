@@ -2,6 +2,7 @@ package com.testai.projectservice.controller;
 
 import com.testai.projectservice.dto.ProjectDTO;
 import com.testai.projectservice.entity.Project;
+import com.testai.projectservice.feignclient.UserClient;
 import com.testai.projectservice.service.ProjectService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -17,6 +18,8 @@ import java.util.UUID;
 public class ProjectController {
     @Autowired
     private ProjectService projectService;
+    @Autowired
+    private UserClient userClient;
 
     private boolean isInvalidLink(String url) {
         try {
@@ -32,6 +35,9 @@ public class ProjectController {
     @PostMapping(path = "/add", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> addProject(@ModelAttribute ProjectDTO request) {
         try {
+            if(userClient.getUserById(request.getUserId()) == null){
+                return ResponseEntity.badRequest().body("User does not exist");
+            }
             if (isInvalidLink(request.getProjectUrl())){
                 return ResponseEntity.badRequest().body("Invalid Service URL !!");
             }
