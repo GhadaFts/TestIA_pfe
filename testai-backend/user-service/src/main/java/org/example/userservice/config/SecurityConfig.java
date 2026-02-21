@@ -28,16 +28,38 @@ public class SecurityConfig {
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Endpoints publics
+                        // ========================================
+                        // ENDPOINTS PUBLICS (sans authentification)
+                        // ========================================
                         .requestMatchers(
+                                // ⭐️ API Auth - TOUS LES ENDPOINTS
                                 "/api/auth/**",
+
+                                // ⭐️ CRITIQUE : Ajouter /error pour Spring Boot
+                                "/error",
+                                "/error/**",
+
+                                // Actuator
                                 "/actuator/health",
+                                "/actuator/health/**",
                                 "/actuator/info",
-                                "/v3/api-docs/**",
+
+                                // Swagger / OpenAPI
                                 "/swagger-ui/**",
-                                "/swagger-ui.html"
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**",
+                                "/api-docs/**"
                         ).permitAll()
-                        // Tous les autres endpoints nécessitent une authentification
+
+                        // ========================================
+                        // ENDPOINTS PROTÉGÉS
+                        // ========================================
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/services/**").hasAnyRole("ADMIN", "MANAGER")
+
+                        // ========================================
+                        // TOUS LES AUTRES ENDPOINTS
+                        // ========================================
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 ->
@@ -47,13 +69,35 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /**
+     * ⭐️ Configuration CORS centralisée (SIMPLIFIÉE)
+     * Pas besoin de dupliquer dans WebConfig
+     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000", "http://localhost:5173"));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+
+        // ⭐️ Origines autorisées
+        configuration.setAllowedOriginPatterns(Arrays.asList("*"));
+        configuration.setAllowedOrigins(Arrays.asList(
+                "http://localhost:5173",
+                "http://localhost:3000",
+                "http://localhost:4173"
+        ));
+
+        // ⭐️ Méthodes HTTP
+        configuration.setAllowedMethods(Arrays.asList(
+                "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"
+        ));
+
+        // ⭐️ Headers
         configuration.setAllowedHeaders(Arrays.asList("*"));
+
+        // ⭐️ Credentials
         configuration.setAllowCredentials(true);
+
+        // ⭐️ Max age
+        configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

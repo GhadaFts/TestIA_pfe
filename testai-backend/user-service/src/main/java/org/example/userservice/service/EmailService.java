@@ -14,20 +14,18 @@ public class EmailService {
 
     private final JavaMailSender mailSender;
 
-    // ✅ CORRECTION : Utiliser l'URL du BACKEND, pas du frontend
-    @Value("${app.backend-url:http://localhost:8081}")
-    private String backendUrl;
-
     @Value("${spring.mail.username}")
     private String fromEmail;
 
+    @Value("${app.frontend-url:http://localhost:5173}")
+    private String frontendUrl;
+
     /**
-     * Envoyer un email de vérification
+     * Envoyer un email de vérification (inscription initiale)
      */
-    public void sendVerificationEmail(String toEmail, String userName, String verificationToken) {
+    public void sendVerificationEmail(String toEmail, String userName, String token) {
         try {
-            // ✅ URL BACKEND pour la vérification (endpoint GET)
-            String verificationUrl = backendUrl + "/api/auth/verify-email?token=" + verificationToken;
+            String verificationUrl = frontendUrl + "/verify-email?token=" + token;
 
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromEmail);
@@ -35,17 +33,17 @@ public class EmailService {
             message.setSubject("TestAI - Vérifiez votre adresse email");
             message.setText(
                     "Bonjour " + userName + ",\n\n" +
-                            "Bienvenue sur TestAI !\n\n" +
-                            "Pour activer votre compte, veuillez cliquer sur le lien suivant :\n\n" +
+                            "Merci de vous être inscrit sur TestAI !\n\n" +
+                            "Pour activer votre compte, veuillez cliquer sur le lien ci-dessous :\n\n" +
                             verificationUrl + "\n\n" +
                             "Ce lien est valable pendant 24 heures.\n\n" +
-                            "Si vous n'avez pas créé de compte TestAI, vous pouvez ignorer cet email.\n\n" +
+                            "Si vous n'avez pas créé de compte, ignorez cet email.\n\n" +
                             "Cordialement,\n" +
                             "L'équipe TestAI"
             );
 
             mailSender.send(message);
-            log.info("✅ Email de vérification envoyé à {} avec URL: {}", toEmail, verificationUrl);
+            log.info("✅ Email de vérification envoyé à {}", toEmail);
 
         } catch (Exception e) {
             log.error("❌ Erreur lors de l'envoi de l'email à {}: {}", toEmail, e.getMessage());
@@ -54,10 +52,11 @@ public class EmailService {
     }
 
     /**
-     * Renvoyer un email de vérification
+     * Renvoyer un email de vérification (même méthode que sendVerificationEmail)
      */
-    public void resendVerificationEmail(String toEmail, String userName, String verificationToken) {
-        sendVerificationEmail(toEmail, userName, verificationToken);
+    public void resendVerificationEmail(String toEmail, String userName, String token) {
+        // Utilise la même logique que sendVerificationEmail
+        sendVerificationEmail(toEmail, userName, token);
         log.info("📧 Email de vérification renvoyé à {}", toEmail);
     }
 
@@ -66,7 +65,7 @@ public class EmailService {
      */
     public void sendPasswordResetEmail(String toEmail, String userName, String resetToken) {
         try {
-            String resetUrl = backendUrl + "/api/auth/reset-password?token=" + resetToken;
+            String resetUrl = frontendUrl + "/reset-password?token=" + resetToken;
 
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromEmail);
@@ -94,22 +93,35 @@ public class EmailService {
         }
     }
 
+    /**
+     * Envoyer un email d'invitation développeur
+     */
+    public void sendDeveloperInvitation(String toEmail, String managerName, String invitationToken, String serviceName) {
+        try {
+            String activationUrl = frontendUrl + "/invitations/activate?token=" + invitationToken;
 
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(fromEmail);
+            message.setTo(toEmail);
+            message.setSubject("TestAI - Invitation à rejoindre l'équipe");
+            message.setText(
+                    "Bonjour,\n\n" +
+                            managerName + " vous invite à rejoindre TestAI en tant que développeur" +
+                            (serviceName != null ? " pour le service \"" + serviceName + "\"" : "") + ".\n\n" +
+                            "Pour activer votre compte, cliquez sur le lien ci-dessous :\n\n" +
+                            activationUrl + "\n\n" +
+                            "Ce lien est valable pendant 7 jours.\n\n" +
+                            "Vous pourrez définir votre mot de passe lors de l'activation.\n\n" +
+                            "Cordialement,\n" +
+                            "L'équipe TestAI"
+            );
 
+            mailSender.send(message);
+            log.info("✅ Email d'invitation développeur envoyé à {}", toEmail);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        } catch (Exception e) {
+            log.error("❌ Erreur lors de l'envoi de l'invitation à {}: {}", toEmail, e.getMessage());
+            throw new RuntimeException("Impossible d'envoyer l'email d'invitation", e);
+        }
+    }
 }

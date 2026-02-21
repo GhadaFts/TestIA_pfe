@@ -2,6 +2,8 @@ package org.example.userservice.controller;
 
 import org.example.userservice.dto.*;
 import org.example.userservice.service.UserService;
+import org.example.userservice.entity.User;
+import org.example.userservice.repository.UserRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,10 +17,12 @@ import java.util.Map;
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "*", allowedHeaders = "*")
 public class AuthController {
 
     private final UserService userService;
+    private final UserRepository userRepository;
+
 
     /**
      * ✅ CORRIGÉ : Inscription avec vérification email
@@ -164,4 +168,26 @@ public class AuthController {
             ));
         }
     }
+    @GetMapping("/check-verification-status")
+    public ResponseEntity<?> checkVerificationStatus(@RequestParam String email) {
+        log.info("Vérification du statut pour: {}", email);
+
+        try {
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+
+            return ResponseEntity.ok(Map.of(
+                    "emailVerified", user.getEmailVerified(),
+                    "phoneVerified", user.getPhoneVerified(),
+                    "accountActive", user.getIsActive()
+            ));
+
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", e.getMessage()
+            ));
+        }
+    }
+
 }

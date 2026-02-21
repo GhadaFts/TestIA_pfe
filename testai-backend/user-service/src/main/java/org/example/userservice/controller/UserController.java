@@ -15,7 +15,7 @@ import java.util.UUID;
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "*", allowedHeaders = "*")  // ⭐️ AJOUTE
 public class UserController {
 
     private final UserService userService;

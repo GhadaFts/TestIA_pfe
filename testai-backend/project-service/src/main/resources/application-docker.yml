@@ -1,0 +1,86 @@
+# ==========================================
+# application-docker.yml - Project Service
+# Configuration pour Docker
+# ==========================================
+
+spring:
+  application:
+    name: project-service
+
+  # ========================================
+  # Database Configuration
+  # ========================================
+  datasource:
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  # ========================================
+  # JPA Configuration
+  # ========================================
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false  # Désactiver en production
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+    open-in-view: false
+
+  # ========================================
+  # Keycloak Resource Server
+  # ========================================
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI}
+
+# ========================================
+# Server Configuration
+# ========================================
+server:
+  port: ${SERVER_PORT:8082}
+
+# ========================================
+# Eureka (Service Discovery)
+# ========================================
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: ${EUREKA_URL}
+    enabled: ${EUREKA_ENABLED:true}
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${random.value}
+
+# ========================================
+# Actuator (Health checks)
+# ========================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+# ========================================
+# File Upload Configuration
+# ========================================
+file:
+  upload-dir: ${FILE_UPLOAD_DIR:/app/uploads/projects-docs}
+
+# ========================================
+# Logging
+# ========================================
+logging:
+  level:
+    com.testai.projectservice: INFO
+    org.springframework.security: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"

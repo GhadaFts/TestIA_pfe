@@ -69,7 +69,7 @@ public class TwilioVerifyService {
      */
     public boolean verifyCode(String phoneNumber, String code) {
         try {
-            VerificationCheck verificationCheck = VerificationCheck.creator(verifyServiceSid).setTo(phoneNumber).create();
+            VerificationCheck verificationCheck = VerificationCheck.creator(verifyServiceSid).setTo(phoneNumber).setCode(code).create();
 
             boolean isValid = "approved".equals(verificationCheck.getStatus());
 
