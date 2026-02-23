@@ -2,11 +2,13 @@ package com.testai.projectservice.controller;
 
 import com.testai.projectservice.dto.ProjectDTO;
 import com.testai.projectservice.entity.Project;
+import com.testai.projectservice.exception.UserNotFoundException;
 import com.testai.projectservice.feignclient.UserClient;
 import com.testai.projectservice.service.ProjectService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
@@ -76,6 +78,16 @@ public class ProjectController {
     public ResponseEntity<?> deleteProject(@PathVariable UUID id) {
         String msg = projectService.deleteProjectById(id);
         return ResponseEntity.ok(msg);
+    }
+
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<List<Project>> getProjectsByUserId(@PathVariable UUID userId) {
+        try {
+            List<Project> projects = projectService.getProjectsByUserId(userId);
+            return ResponseEntity.ok(projects);
+        } catch (UserNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
 }
