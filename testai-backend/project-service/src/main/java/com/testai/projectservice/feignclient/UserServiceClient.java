@@ -16,7 +16,7 @@ import java.util.UUID;
  * - path: préfixe des endpoints (/api/users)
  */
 @FeignClient(name = "user-service", path = "/api/users", configuration = FeignClientConfig.class)
-public interface UserClient {
+public interface UserServiceClient {
 
     /**
      * Récupérer un utilisateur par son ID
