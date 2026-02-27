@@ -1,41 +1,20 @@
+# ==========================================
+# application.yml - API Gateway
+# Configuration complète avec toutes les routes
+# ==========================================
+
+server:
+  port: ${SERVER_PORT:8888}
+
 spring:
   application:
     name: api-gateway
-
-  # Configuration Cloud Gateway
+  
   cloud:
     gateway:
-      discovery:
-        locator:
-          enabled: true
-          lower-case-service-id: true
-
-      # Routes manuelles (plus de contrôle)
-      routes:
-        # USER SERVICE
-        - id: user-service
-          uri: lb://user-service
-          predicates:
-            - Path=/api/users/**, /api/auth/**
-          filters:
-            - StripPrefix=0
-        # PROJECT SERVICE
-        - id: project-service
-          uri: lb://project-service
-          predicates:
-            - Path=/api/projects/**
-          filters:
-            - StripPrefix=0
-        # ENDPOINT SERVICE
-        - id: endpoint-service
-          uri: lb://endpoint-service
-          predicates:
-            - Path=/api/endpoints/**
-          filters:
-            - StripPrefix=0
-      # CORS Configuration
+      # Configuration globale CORS
       globalcors:
-        cors-configurations:
+        corsConfigurations:
           '[/**]':
             allowedOrigins: "*"
             allowedMethods:
@@ -43,28 +22,60 @@ spring:
               - POST
               - PUT
               - DELETE
+              - PATCH
               - OPTIONS
             allowedHeaders: "*"
-            allowCredentials: false
+            allowCredentials: true
+            maxAge: 3600
+      
+      # Configuration des routes
+      routes:
+        # ==========================================
+        # USER-SERVICE ROUTES
+        # ==========================================
+        - id: user-service
+          uri: lb://USER-SERVICE
+          predicates:
+            - Path=/api/users/**
+          filters:
+            - RewritePath=/api/users/(?<segment>.*), /api/users/$\{segment}
+        
+        # ==========================================
+        # PROJECT-SERVICE ROUTES
+        # ==========================================
+        - id: project-service
+          uri: lb://PROJECT-SERVICE
+          predicates:
+            - Path=/api/projects/**
+          filters:
+            - RewritePath=/api/projects/(?<segment>.*), /api/projects/$\{segment}
+        
+        # ==========================================
+        # ENDPOINT-SERVICE ROUTES
+        # ==========================================
+        - id: endpoint-service
+          uri: lb://ENDPOINT-SERVICE
+          predicates:
+            - Path=/api/endpoints/**
+          filters:
+            - RewritePath=/api/endpoints/(?<segment>.*), /api/endpoints/$\{segment}
+        
+        # ==========================================
+        # AUTH ROUTES (via user-service)
+        # ==========================================
+        - id: auth-routes
+          uri: lb://USER-SERVICE
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - RewritePath=/api/auth/(?<segment>.*), /api/auth/$\{segment}
 
-  # OAuth2 Resource Server (Validation JWT)
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: http://localhost:8080/realms/testai
-          jwk-set-uri: http://localhost:8080/realms/testai/protocol/openid-connect/certs
-
-server:
-  port: 8888
-
-# Eureka Client
+# Eureka Configuration
 eureka:
   client:
     serviceUrl:
-      defaultZone: http://localhost:8761/eureka/
-    register-with-eureka: true
-    fetch-registry: true
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+    enabled: ${EUREKA_ENABLED:true}
   instance:
     prefer-ip-address: true
     instance-id: ${spring.application.name}:${random.value}
@@ -74,13 +85,41 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,gateway
+        include: health,info,metrics,gateway
   endpoint:
     health:
       show-details: always
+    gateway:
+      enabled: true
 
 # Logging
 logging:
   level:
     org.springframework.cloud.gateway: DEBUG
     org.springframework.security: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+---
+# ==========================================
+# Profile Docker
+# ==========================================
+
+spring:
+  config:
+    activate:
+      on-profile: docker
+
+server:
+  port: ${SERVER_PORT:8888}
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: ${EUREKA_URL}
+    enabled: ${EUREKA_ENABLED:true}
+
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO
+    org.springframework.security: INFO

@@ -56,11 +56,18 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Spring Security (optionnel) -->
+        <!-- ⭐️ CRITICAL: Spring Security -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
+
+        <!-- ⭐️ CRITICAL: OAuth2 Resource Server (OBLIGATOIRE) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+        </dependency>
+
 
         <!-- Actuator -->
         <dependency>

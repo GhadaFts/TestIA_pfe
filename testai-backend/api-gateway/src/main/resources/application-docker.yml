@@ -17,12 +17,21 @@ spring:
           filters:
             - StripPrefix=0
 
-        - id: invitations
-          uri: lb://user-service
+        - id: project-service
+          uri: lb://project-service
           predicates:
-            - Path=/api/invitations/**
+            - Path=/api/projects/**
           filters:
             - StripPrefix=0
+
+        - id: endpoint-service
+          uri: lb://endpoint-service
+          predicates:
+            - Path=/api/endpoints/**
+          filters:
+            - StripPrefix=0
+
+
 
       globalcors:
         cors-configurations:
